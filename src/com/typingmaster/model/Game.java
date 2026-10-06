@@ -13,7 +13,7 @@ public class Game {
     private final List<Bullet> bullets = new ArrayList<>();
 
     private int score, health, wave;
-    private Zombie locked;
+    private final List<Zombie> locked = new ArrayList<>();
     private double spawnTimer, waveTimer;
     private boolean running, over;
 
@@ -36,7 +36,7 @@ public class Game {
         score = 0;
         health = 100;
         wave = 1;
-        locked = null;
+        locked.clear();
         spawnTimer = 0;
         waveTimer = 0;
         running = false;
@@ -68,8 +68,8 @@ public class Game {
         zombies.add(z);
     }
 
-    // returns the hit point (for bullet effect) or null on miss
-    public double[] typeChar(char ch) {
+    // returns one hit point per zombie struck (for bullet effects) or null on miss
+    public double[][] typeChar(char ch) {
         if (!running || over) return null;
 
         // only count time between keystrokes if the gap is short — pauses don't count
@@ -82,17 +82,30 @@ public class Game {
 
         totalChars++;
 
-        // already locked — only that target accepts input
-        if (locked != null && !locked.isDead()) {
-            if (locked.tryType(ch)) {
+        // drop any locked targets that have died (e.g. reached base)
+        locked.removeIf(Zombie::isDead);
+
+        // already locked — only those targets accept input (all share the same word)
+        if (!locked.isEmpty()) {
+            Zombie head = locked.get(0);
+            if (head.tryType(ch)) {
                 correctChars++;
-                double[] hit = { locked.getX(), locked.getY() };
-                if (locked.isFullyTyped()) {
-                    score += 10 + locked.getWord().length() * 2;
-                    locked.kill();
-                    locked = null;
+                // apply the same char to every other locked zombie so progress stays in sync
+                for (int i = 1; i < locked.size(); i++) locked.get(i).tryType(ch);
+
+                double[][] hits = new double[locked.size()][];
+                for (int i = 0; i < locked.size(); i++) {
+                    Zombie z = locked.get(i);
+                    hits[i] = new double[] { z.getX(), z.getY() };
                 }
-                return hit;
+                if (head.isFullyTyped()) {
+                    for (Zombie z : locked) {
+                        score += 10 + z.getWord().length() * 2;
+                        z.kill();
+                    }
+                    locked.clear();
+                }
+                return hits;
             }
             return null;
         }
@@ -106,10 +119,22 @@ public class Game {
             }
         }
         if (best != null) {
-            best.tryType(ch);
-            locked = best;
+            // lock every live zombie sharing that exact word so they all die together
+            String word = best.getWord();
+            for (Zombie z : zombies) {
+                if (z.isDead()) continue;
+                if (z.getWord().equals(word)) {
+                    z.tryType(ch);
+                    locked.add(z);
+                }
+            }
             correctChars++;
-            return new double[] { best.getX(), best.getY() };
+            double[][] hits = new double[locked.size()][];
+            for (int i = 0; i < locked.size(); i++) {
+                Zombie z = locked.get(i);
+                hits[i] = new double[] { z.getX(), z.getY() };
+            }
+            return hits;
         }
         return null;
     }
@@ -132,7 +157,7 @@ public class Game {
             if (z.getX() < 110) {
                 // reached base
                 z.kill();
-                if (locked == z) locked = null;
+                if (locked.remove(z)) { /* zombie that reached base is no longer a target */ }
                 int dmg = switch (z.getKind()) {
                     case "tank"   -> 20;
                     case "runner" -> 8;
@@ -172,7 +197,8 @@ public class Game {
     public int getScore()   { return score; }
     public int getHealth()  { return health; }
     public int getWave()    { return wave; }
-    public Zombie getLocked() { return locked; }
+    public Zombie getLocked() { return locked.isEmpty() ? null : locked.get(0); }
+    public boolean isLocked(Zombie z) { return locked.contains(z); }
     public boolean isRunning() { return running; }
     public boolean isOver()    { return over; }
     public int getWidth()  { return width; }

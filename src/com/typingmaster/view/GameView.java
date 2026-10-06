@@ -272,7 +272,7 @@ public class GameView extends JPanel {
         g.fillRoundRect(lx - padX, ly - fm.getAscent() - padY, fullW + padX * 2,
                 fm.getHeight() + padY * 2, 6, 6);
 
-        boolean lockedHere = game.getLocked() == z;
+        boolean lockedHere = game.isLocked(z);
         g.setColor(lockedHere ? Theme.RED : new Color(108, 242, 108, 90));
         g.setStroke(new BasicStroke(lockedHere ? 2f : 1f));
         g.drawRoundRect(lx - padX, ly - fm.getAscent() - padY, fullW + padX * 2,

@@ -44,9 +44,11 @@ public class GameController {
         if (!game.isRunning() || game.isOver()) return;
         char c = Character.toLowerCase(e.getKeyChar());
         if (c < 'a' || c > 'z') return;
-        double[] hit = game.typeChar(c);
-        if (hit != null) {
-            game.addBullet(new Bullet(70, view.getHeight() / 2.0, hit[0], hit[1]));
+        double[][] hits = game.typeChar(c);
+        if (hits != null) {
+            for (double[] hit : hits) {
+                game.addBullet(new Bullet(70, view.getHeight() / 2.0, hit[0], hit[1]));
+            }
         }
     }
 
